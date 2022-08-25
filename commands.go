@@ -18,8 +18,8 @@ var CommandDescriptions = map[string]string{
 func GetCommandConfig() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
 		{
-			Name:        "basic-command",
-			Description: "Basic command",
+			Name:        "echo",
+			Description: "Echo voice shiz",
 		},
 		{
 			Name:        "test",

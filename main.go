@@ -20,7 +20,7 @@ var (
 )
 
 var session *discordgo.Session
-var guildManager = juanitacore.NewGuildManager()
+var guildManager = juanitacore.NewJuanitaManager()
 var youtubeSearcher = youtube.NewYoutubeSearcher()
 
 func init() { flag.Parse() }
@@ -38,7 +38,9 @@ const integerOptionMinValue = 1.0
 var commands = GetCommandConfig()
 
 var commandHandlers = map[string]func(session *discordgo.Session, interaction *discordgo.InteractionCreate){
-	"basic-command": func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
+	"echo": func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
+		guild := guildManager.GetOrAddGuild(interaction.Interaction.GuildID)
+		guild.Player.Echo(session, interaction)
 		session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -52,9 +54,12 @@ var commandHandlers = map[string]func(session *discordgo.Session, interaction *d
 		if option, ok := options["sangnavn"]; ok {
 			messageArguments = append(messageArguments, option.StringValue())
 		}
-		var user = interaction.Interaction.Member.User
-		var searchString = messageArguments[0].(string)
+		user := interaction.Interaction.Member.User
+		searchString := messageArguments[0].(string)
 		searchResult := youtubeSearcher.Search(searchString, user)
+		guild := guildManager.GetOrAddGuild(interaction.Interaction.GuildID)
+		guild.Player.Play(session, interaction, *searchResult)
+
 		session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{

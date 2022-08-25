@@ -2,28 +2,27 @@ package juanitacore
 
 import (
 	"juanitaGo/structs"
-	"math/rand"
 
+	"github.com/bwmarrin/dgvoice"
 	"github.com/bwmarrin/discordgo"
 )
 
 type JuanitaPlayer struct {
-	AudioPlayer     string
 	VoiceConnection *discordgo.VoiceConnection
-	CurrentTrack    string
+	CurrentTrack    *structs.JuanitaSearch
 	isLoop          bool
 	isLocked        bool
 	isRepeat        bool
 	volume          uint
-	Queue           []structs.JuanitaSearch
+	Queue           JuanitaQueue
 }
 
 func NewJuanitaPlayer() JuanitaPlayer {
-	return JuanitaPlayer{AudioPlayer: "", VoiceConnection: nil, CurrentTrack: "", isLoop: false, isLocked: false, isRepeat: false, volume: 100, Queue: make([]structs.JuanitaSearch, 0)}
+	return JuanitaPlayer{VoiceConnection: nil, CurrentTrack: nil, isLoop: false, isLocked: false, isRepeat: false, volume: 100, Queue: NewJuanitaQueue()}
 }
 
 func NewJuanitaPlayerWithQueue(audioPlayer string, voiceConnection *discordgo.VoiceConnection, currentTrack string, isLoop bool, isLocked bool, isRepeat bool, volume uint, queue []structs.JuanitaSearch) JuanitaPlayer {
-	return JuanitaPlayer{AudioPlayer: audioPlayer, VoiceConnection: voiceConnection, CurrentTrack: currentTrack, isLoop: isLoop, isLocked: isLocked, isRepeat: isRepeat, volume: volume, Queue: queue}
+	return JuanitaPlayer{VoiceConnection: voiceConnection, CurrentTrack: nil, isLoop: isLoop, isLocked: isLocked, isRepeat: isRepeat, volume: volume, Queue: NewJuanitaQueueWithTracks(queue)}
 }
 
 func (player *JuanitaPlayer) ToggleLoop() {
@@ -42,48 +41,78 @@ func (player *JuanitaPlayer) SetVolume(volume uint) {
 	player.volume = volume
 }
 
-func (player *JuanitaPlayer) Shuffle() {
-	for i := range player.Queue {
-		j := rand.Intn(i + 1)
-		player.Queue[i], player.Queue[j] = player.Queue[j], player.Queue[i]
-	}
-}
-
-func (player *JuanitaPlayer) JoinVoiceChannel(session *discordgo.Session, interaction *discordgo.InteractionCreate) error {
+func (player *JuanitaPlayer) JoinVoiceChannel(session *discordgo.Session, interaction *discordgo.InteractionCreate) bool {
 	voiceChannel, err := session.UserChannelCreate(interaction.Member.User.ID)
 	if err != nil {
-		return err
+		return false
 	}
 
 	voiceConnection, err := session.ChannelVoiceJoin(interaction.GuildID, voiceChannel.ID, false, true)
 	if err != nil {
-		return err
+		return false
 	}
 
 	player.VoiceConnection = voiceConnection
+	return true
+}
+
+func (player *JuanitaPlayer) LeaveVoiceChannel(session *discordgo.Session) bool {
+	err := player.VoiceConnection.Disconnect()
+	if err != nil {
+		return false
+	}
+	return true
+}
+
+func (player *JuanitaPlayer) AddSongToBackOfQueue(search structs.JuanitaSearch) {
+	player.Queue.EnqueueBack(search)
+}
+
+func (player *JuanitaPlayer) AddSongFirstToQueue(session *discordgo.Session, interaction *discordgo.InteractionCreate, search structs.JuanitaSearch) {
+	player.Queue.EnqueueFirst(search)
+}
+
+// play song in discord channel if queue is not empty
+func (player *JuanitaPlayer) Play(session *discordgo.Session, interaction *discordgo.InteractionCreate, song structs.JuanitaSearch) error {
+	if player.Queue.IsEmpty() {
+		return nil
+	}
+	if player.CurrentTrack != nil {
+		// add song to queue
+		player.AddSongToBackOfQueue(song)
+		return nil
+	}
+	if player.VoiceConnection == nil {
+		ok := player.JoinVoiceChannel(session, interaction)
+		if ok {
+			currentTrack := player.Queue.Dequeue()
+			audioStream := currentTrack.Song.AudioStream()
+			dgvoice.PlayAudioFile(player.VoiceConnection, audioStream, make(<-chan bool))
+		}
+	}
 	return nil
 }
 
-func (player *JuanitaPlayer) AddSongToBackOfQueue(session *discordgo.Session, interaction *discordgo.InteractionCreate, search structs.JuanitaSearch) error {
-	if player.VoiceConnection == nil {
-		err := player.JoinVoiceChannel(session, interaction)
-		if err != nil {
-			return err
+func (player *JuanitaPlayer) Echo(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
+	ok := player.JoinVoiceChannel(session, interaction)
+	if ok {
+		recv := make(chan *discordgo.Packet, 2)
+		go dgvoice.ReceivePCM(player.VoiceConnection, recv)
+
+		send := make(chan []int16, 2)
+		go dgvoice.SendPCM(player.VoiceConnection, send)
+
+		player.VoiceConnection.Speaking(true)
+		defer player.VoiceConnection.Speaking(false)
+
+		for {
+
+			p, ok := <-recv
+			if !ok {
+				return
+			}
+
+			send <- p.PCM
 		}
 	}
-
-	player.Queue = append(player.Queue, search)
-	return nil
-}
-
-func (player *JuanitaPlayer) AddSongFirstToQueue(session *discordgo.Session, interaction *discordgo.InteractionCreate, search structs.JuanitaSearch) error {
-	if player.VoiceConnection == nil {
-		err := player.JoinVoiceChannel(session, interaction)
-		if err != nil {
-			return err
-		}
-	}
-
-	player.Queue = append([]structs.JuanitaSearch{search}, player.Queue...)
-	return nil
 }
