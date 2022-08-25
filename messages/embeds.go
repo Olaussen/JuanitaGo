@@ -1,13 +1,13 @@
-package utils
+package messages
 
 import (
 	"fmt"
-	"juanitaGo/structures"
+	"juanitaGo/structs"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-func PlayEmbed(songSearch structures.JuanitaSearch) []*discordgo.MessageEmbed {
+func PlayEmbed(songSearch structs.JuanitaSearch) []*discordgo.MessageEmbed {
 	song := songSearch.Song
 	requestor := songSearch.Requestor
 
@@ -17,11 +17,11 @@ func PlayEmbed(songSearch structures.JuanitaSearch) []*discordgo.MessageEmbed {
 			Fields: []*discordgo.MessageEmbedField{
 				{
 					Name:  "Nå spiller:",
-					Value: fmt.Sprintf("[%v](%v) lagt til av <@%v>", song.Title, song.Url, requestor.Id),
+					Value: fmt.Sprintf("[%v](%v) lagt til av <@%v>", song.Title(), song.Url(), requestor.Id),
 				},
 				{
 					Name:  "Duration",
-					Value: fmt.Sprintf("%v", song.Seconds),
+					Value: fmt.Sprintf("%v", song.Duration()),
 				},
 			},
 		},

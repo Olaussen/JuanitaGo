@@ -18,10 +18,7 @@ var CommandDescriptions = map[string]string{
 func GetCommandConfig() []*discordgo.ApplicationCommand {
 	return []*discordgo.ApplicationCommand{
 		{
-			Name: "basic-command",
-			// All commands and options must have a description
-			// Commands/options without description will fail the registration
-			// of the command.
+			Name:        "basic-command",
 			Description: "Basic command",
 		},
 		{

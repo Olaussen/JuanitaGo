@@ -32,6 +32,10 @@ func GetEnvironmentVariableByKey(key string) string {
 	return os.Getenv(key)
 }
 
+func CreateYoutubeLink(videoId string) string {
+	return "https://www.youtube.com/watch?v=" + videoId
+}
+
 func GetTimeAsString() time.Time {
 	return time.Now()
 }

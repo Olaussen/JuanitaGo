@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"juanitaGo/juanitacore"
+	"juanitaGo/messages"
 	"juanitaGo/utils"
 	"juanitaGo/youtube"
 	"log"
@@ -37,22 +38,27 @@ const integerOptionMinValue = 1.0
 var commands = GetCommandConfig()
 
 var commandHandlers = map[string]func(session *discordgo.Session, interaction *discordgo.InteractionCreate){
+	"basic-command": func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
+		session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Hey there! Congratulations, you just executed your first slash command",
+			},
+		})
+	},
 	"test": func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
 		options := utils.ExtractOptions(interaction)
 		messageArguments := make([]interface{}, 0, len(options))
-
 		if option, ok := options["sangnavn"]; ok {
 			messageArguments = append(messageArguments, option.StringValue())
 		}
 		var user = interaction.Interaction.Member.User
 		var searchString = messageArguments[0].(string)
-		var searchResult = youtubeSearcher.Search(searchString, user)
-
+		searchResult := youtubeSearcher.Search(searchString, user)
 		session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-			// Ignore type for now, they will be discussed in "responses"
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Embeds: utils.PlayEmbed(*searchResult),
+				Embeds: messages.PlayEmbed(*searchResult),
 			},
 		})
 	},

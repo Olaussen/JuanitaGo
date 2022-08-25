@@ -7,6 +7,7 @@ require github.com/bwmarrin/discordgo v0.26.0
 require (
 	cloud.google.com/go/compute v1.7.0 // indirect
 	github.com/bitly/go-simplejson v0.5.0 // indirect
+	github.com/bwmarrin/dgvoice v0.0.0-20210225172318-caaac756e02e // indirect
 	github.com/clinet/discordgo-embed v0.0.0-20220113222025-bafe0c917646 // indirect
 	github.com/dlclark/regexp2 v1.4.1-0.20201116162257-a2a8dda75c91 // indirect
 	github.com/dop251/goja v0.0.0-20220516123900-4418d4575a41 // indirect
@@ -31,4 +32,5 @@ require (
 	google.golang.org/genproto v0.0.0-20220624142145-8cd45d7dbd1f // indirect
 	google.golang.org/grpc v1.47.0 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
+	layeh.com/gopus v0.0.0-20210501142526-1ee02d434e32 // indirect
 )

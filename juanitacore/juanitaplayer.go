@@ -1,7 +1,7 @@
 package juanitacore
 
 import (
-	"juanitaGo/structures"
+	"juanitaGo/structs"
 	"math/rand"
 
 	"github.com/bwmarrin/discordgo"
@@ -15,14 +15,14 @@ type JuanitaPlayer struct {
 	isLocked        bool
 	isRepeat        bool
 	volume          uint
-	Queue           []structures.JuanitaSearch
+	Queue           []structs.JuanitaSearch
 }
 
 func NewJuanitaPlayer() JuanitaPlayer {
-	return JuanitaPlayer{AudioPlayer: "", VoiceConnection: nil, CurrentTrack: "", isLoop: false, isLocked: false, isRepeat: false, volume: 100, Queue: make([]structures.JuanitaSearch, 0)}
+	return JuanitaPlayer{AudioPlayer: "", VoiceConnection: nil, CurrentTrack: "", isLoop: false, isLocked: false, isRepeat: false, volume: 100, Queue: make([]structs.JuanitaSearch, 0)}
 }
 
-func NewJuanitaPlayerWithQueue(audioPlayer string, voiceConnection *discordgo.VoiceConnection, currentTrack string, isLoop bool, isLocked bool, isRepeat bool, volume uint, queue []structures.JuanitaSearch) JuanitaPlayer {
+func NewJuanitaPlayerWithQueue(audioPlayer string, voiceConnection *discordgo.VoiceConnection, currentTrack string, isLoop bool, isLocked bool, isRepeat bool, volume uint, queue []structs.JuanitaSearch) JuanitaPlayer {
 	return JuanitaPlayer{AudioPlayer: audioPlayer, VoiceConnection: voiceConnection, CurrentTrack: currentTrack, isLoop: isLoop, isLocked: isLocked, isRepeat: isRepeat, volume: volume, Queue: queue}
 }
 
@@ -64,7 +64,7 @@ func (player *JuanitaPlayer) JoinVoiceChannel(session *discordgo.Session, intera
 	return nil
 }
 
-func (player *JuanitaPlayer) AddSongToBackOfQueue(session *discordgo.Session, interaction *discordgo.InteractionCreate, search structures.JuanitaSearch) error {
+func (player *JuanitaPlayer) AddSongToBackOfQueue(session *discordgo.Session, interaction *discordgo.InteractionCreate, search structs.JuanitaSearch) error {
 	if player.VoiceConnection == nil {
 		err := player.JoinVoiceChannel(session, interaction)
 		if err != nil {
@@ -76,7 +76,7 @@ func (player *JuanitaPlayer) AddSongToBackOfQueue(session *discordgo.Session, in
 	return nil
 }
 
-func (player *JuanitaPlayer) AddSongFirstToQueue(session *discordgo.Session, interaction *discordgo.InteractionCreate, search structures.JuanitaSearch) error {
+func (player *JuanitaPlayer) AddSongFirstToQueue(session *discordgo.Session, interaction *discordgo.InteractionCreate, search structs.JuanitaSearch) error {
 	if player.VoiceConnection == nil {
 		err := player.JoinVoiceChannel(session, interaction)
 		if err != nil {
@@ -84,6 +84,6 @@ func (player *JuanitaPlayer) AddSongFirstToQueue(session *discordgo.Session, int
 		}
 	}
 
-	player.Queue = append([]structures.JuanitaSearch{search}, player.Queue...)
+	player.Queue = append([]structs.JuanitaSearch{search}, player.Queue...)
 	return nil
 }
