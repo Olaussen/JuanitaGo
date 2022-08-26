@@ -8,6 +8,10 @@ type JuanitaSearch struct {
 	Date      time.Time
 }
 
-func NewJuanitaSearch(song JuanitaSong, requestor JuanitaRequestor, date time.Time) JuanitaSearch {
-	return JuanitaSearch{Song: song, Requestor: requestor, Date: date}
+func NewJuanitaSearch(song JuanitaSong, requestor JuanitaRequestor, date time.Time) *JuanitaSearch {
+	search := new(JuanitaSearch)
+	search.Song = song
+	search.Requestor = requestor
+	search.Date = date
+	return search
 }

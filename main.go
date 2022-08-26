@@ -1,118 +1,116 @@
 package main
 
 import (
-	"flag"
-	"juanitaGo/juanitacore"
-	"juanitaGo/messages"
-	"juanitaGo/utils"
-	"juanitaGo/youtube"
-	"log"
-	"os"
-	"os/signal"
+	"fmt"
+	cmd "juanitaGo/commands"
+	core "juanitaGo/juanitacore"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 )
 
 var (
-	GuildID        = flag.String("guild", "", "Leave blank to register global commands")
-	BotToken       = flag.String("token", utils.GetEnvironmentVariableByKey("BOT_TOKEN"), "Bot access token")
-	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
+	conf       *core.JuanitaConfig
+	CmdHandler *core.JuanitaCommandHandler
+	Sessions   *core.JuanitaSessionManager
+	youtube    *core.Youtube
+	botId      string
+	PREFIX     string
 )
 
-var session *discordgo.Session
-var guildManager = juanitacore.NewJuanitaManager()
-var youtubeSearcher = youtube.NewYoutubeSearcher()
-
-func init() { flag.Parse() }
-
 func init() {
-	var err error
-	session, err = discordgo.New("Bot " + *BotToken)
-	if err != nil {
-		log.Fatalf("Invalid bot parameters: %v", err)
-	}
-}
+	conf = core.LoadConfig("config.json")
+	PREFIX = conf.Prefix
 
-const integerOptionMinValue = 1.0
-
-var commands = GetCommandConfig()
-
-var commandHandlers = map[string]func(session *discordgo.Session, interaction *discordgo.InteractionCreate){
-	"echo": func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
-		guild := guildManager.GetOrAddGuild(interaction.Interaction.GuildID)
-		guild.Player.Echo(session, interaction)
-		session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "Hey there! Congratulations, you just executed your first slash command",
-			},
-		})
-	},
-	"test": func(session *discordgo.Session, interaction *discordgo.InteractionCreate) {
-		options := utils.ExtractOptions(interaction)
-		messageArguments := make([]interface{}, 0, len(options))
-		if option, ok := options["sangnavn"]; ok {
-			messageArguments = append(messageArguments, option.StringValue())
-		}
-		user := interaction.Interaction.Member.User
-		searchString := messageArguments[0].(string)
-		searchResult := youtubeSearcher.Search(searchString, user)
-		guild := guildManager.GetOrAddGuild(interaction.Interaction.GuildID)
-		guild.Player.Play(session, interaction, *searchResult)
-
-		session.InteractionRespond(interaction.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Embeds: messages.PlayEmbed(*searchResult),
-			},
-		})
-	},
-}
-
-func init() {
-	session.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-			h(s, i)
-		}
-	})
 }
 
 func main() {
-	session.AddHandler(func(session *discordgo.Session, r *discordgo.Ready) {
-		log.Printf("Logged in as: %v#%v", session.State.User.Username, session.State.User.Discriminator)
-	})
-	err := session.Open()
+	CmdHandler = core.NewCommandHandler()
+	registerCommands()
+	Sessions = core.NewSessionManager()
+	youtube = &core.Youtube{Conf: conf}
+	discord, err := discordgo.New("Bot " + conf.BotToken)
 	if err != nil {
-		log.Fatalf("Cannot open the session: %v", err)
+		fmt.Println("Error creating discord session,", err)
+		return
+	}
+	if conf.UseSharding {
+		discord.ShardID = conf.ShardId
+		discord.ShardCount = conf.ShardCount
 	}
 
-	log.Println("Adding commands...")
-	registeredCommands := make([]*discordgo.ApplicationCommand, len(commands))
-	for i, v := range commands {
-		cmd, err := session.ApplicationCommandCreate(session.State.User.ID, *GuildID, v)
-		if err != nil {
-			log.Panicf("Cannot create '%v' command: %v", v.Name, err)
-		}
-		registeredCommands[i] = cmd
+	discord.AddHandler(commandHandler)
+	discord.AddHandler(func(discord *discordgo.Session, ready *discordgo.Ready) {
+		discord.UpdateGameStatus(0, conf.DefaultStatus)
+		guilds := discord.State.Guilds
+		fmt.Println("Ready with", len(guilds), "guilds.")
+	})
+	err = discord.Open()
+	if err != nil {
+		fmt.Println("Error opening connection,", err)
+		return
 	}
+	fmt.Println("Started")
+	<-make(chan struct{})
+}
 
-	defer session.Close()
-
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt)
-	log.Println("Press Ctrl+C to exit")
-	<-stop
-
-	if *RemoveCommands {
-		log.Println("Removing commands...")
-
-		for _, v := range registeredCommands {
-			err := session.ApplicationCommandDelete(session.State.User.ID, *GuildID, v.ID)
-			if err != nil {
-				log.Panicf("Cannot delete '%v' command: %v", v.Name, err)
-			}
-		}
+func commandHandler(discord *discordgo.Session, message *discordgo.MessageCreate) {
+	user := message.Author
+	if user.ID == botId || user.Bot {
+		return
 	}
+	content := message.Content
+	if len(content) <= len(PREFIX) {
+		return
+	}
+	if content[:len(PREFIX)] != PREFIX {
+		return
+	}
+	content = content[len(PREFIX):]
+	if len(content) < 1 {
+		return
+	}
+	args := strings.Fields(content)
+	name := strings.ToLower(args[0])
+	command, found := CmdHandler.Get(name)
+	if !found {
+		return
+	}
+	channel, err := discord.State.Channel(message.ChannelID)
+	if err != nil {
+		fmt.Println("Error getting channel,", err)
+		return
+	}
+	guild, err := discord.State.Guild(channel.GuildID)
+	if err != nil {
+		fmt.Println("Error getting guild,", err)
+		return
+	}
+	ctx := core.NewContext(discord, guild, channel, user, message, conf, CmdHandler, Sessions, youtube)
+	ctx.Args = args[1:]
+	c := *command
+	c(*ctx)
+}
 
-	log.Println("Juanita shutting down.")
+func registerCommands() {
+	CmdHandler.Register("play", cmd.PlayCommand, "Plays whats in the queue")
+	CmdHandler.Register("join", cmd.JoinCommand, "Join a voice channel !join attic")
+	CmdHandler.Register("add", cmd.AddCommand, "Add a song to the queue !add <youtube-link>")
+	// ??? means I haven't dug in
+	// TODO: Consistant order?
+	/*CmdHandler.Register("help", cmd.HelpCommand, "Gives you this help message!")
+	CmdHandler.Register("admin", cmd.AdminCommand, "???")
+	CmdHandler.Register("leave", cmd.LeaveCommand, "Leaves current voice channel")*/
+	/*CmdHandler.Register("stop", cmd.StopCommand, "Stops the music")
+	CmdHandler.Register("info", cmd.InfoCommand, "???")
+	CmdHandler.Register("skip", cmd.SkipCommand, "Skip")
+	CmdHandler.Register("queue", cmd.QueueCommand, "Print queue???")
+	CmdHandler.Register("eval", cmd.EvalCommand, "???")
+	CmdHandler.Register("debug", cmd.DebugCommand, "???")
+	CmdHandler.Register("clear", cmd.ClearCommand, "empty queue???")
+	CmdHandler.Register("current", cmd.CurrentCommand, "Name current song???")
+	CmdHandler.Register("youtube", cmd.YoutubeCommand, "???")
+	CmdHandler.Register("shuffle", cmd.ShuffleCommand, "Shuffle queue???")
+	CmdHandler.Register("pausequeue", cmd.PauseCommand, "Pause song in place???")
+	CmdHandler.Register("pick", cmd.PickCommand, "???")*/
 }

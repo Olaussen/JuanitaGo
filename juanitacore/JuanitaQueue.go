@@ -1,49 +1,64 @@
 package juanitacore
 
-import (
-	"juanitaGo/structs"
-	"math/rand"
-)
-
-type JuanitaQueue struct {
-	tracks []structs.JuanitaSearch
+type SongQueue struct {
+	list    []Song
+	current *Song
+	Running bool
 }
 
-func NewJuanitaQueue() JuanitaQueue {
-	return JuanitaQueue{tracks: make([]structs.JuanitaSearch, 0)}
+func (queue SongQueue) Get() []Song {
+	return queue.list
 }
 
-func NewJuanitaQueueWithTracks(tracks []structs.JuanitaSearch) JuanitaQueue {
-	return JuanitaQueue{tracks: tracks}
+func (queue *SongQueue) Set(list []Song) {
+	queue.list = list
 }
 
-func (queue *JuanitaQueue) EnqueueBack(track structs.JuanitaSearch) {
-	queue.tracks = append(queue.tracks, track)
+func (queue *SongQueue) Add(song Song) {
+	queue.list = append(queue.list, song)
 }
 
-func (queue *JuanitaQueue) EnqueueFirst(track structs.JuanitaSearch) {
-	queue.tracks = append([]structs.JuanitaSearch{track}, queue.tracks...)
+func (queue SongQueue) HasNext() bool {
+	return len(queue.list) > 0
 }
 
-func (queue *JuanitaQueue) Dequeue() *structs.JuanitaSearch {
-	track := queue.tracks[0]
-	queue.tracks = queue.tracks[1:]
-	return &track
+func (queue *SongQueue) Next() Song {
+	song := queue.list[0]
+	queue.list = queue.list[1:]
+	queue.current = &song
+	return song
 }
 
-func (queue *JuanitaQueue) SkipTo(index int) *structs.JuanitaSearch {
-	track := queue.tracks[index]
-	queue.tracks = queue.tracks[index+1:]
-	return &track
+func (queue *SongQueue) Clear() {
+	queue.list = make([]Song, 0)
+	queue.Running = false
+	queue.current = nil
 }
 
-func (queue *JuanitaQueue) Shuffle() {
-	for i := range queue.tracks {
-		j := rand.Intn(i + 1)
-		queue.tracks[i], queue.tracks[j] = queue.tracks[j], queue.tracks[i]
+func (queue *SongQueue) Start(sess *JuanitaSession, callback func(string)) {
+	queue.Running = true
+	for queue.HasNext() && queue.Running {
+		song := queue.Next()
+		callback("Now playing `" + song.Title + "`.")
+		sess.Play(song)
+	}
+	if !queue.Running {
+		callback("Stopped playing.")
+	} else {
+		callback("Finished queue.")
 	}
 }
 
-func (queue *JuanitaQueue) IsEmpty() bool {
-	return len(queue.tracks) == 0
+func (queue *SongQueue) Current() *Song {
+	return queue.current
+}
+
+func (queue *SongQueue) Pause() {
+	queue.Running = false
+}
+
+func newSongQueue() *SongQueue {
+	queue := new(SongQueue)
+	queue.list = make([]Song, 0)
+	return queue
 }

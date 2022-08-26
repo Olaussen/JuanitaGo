@@ -1,13 +1,10 @@
 package youtube
 
 import (
-	"juanitaGo/structs"
 	"juanitaGo/utils"
 	"log"
 	"net/http"
-	"time"
 
-	"github.com/bwmarrin/discordgo"
 	youtube "github.com/kkdai/youtube/v2"
 	"google.golang.org/api/googleapi/transport"
 	googleYoutube "google.golang.org/api/youtube/v3"
@@ -47,7 +44,7 @@ func (searcher YoutubeSearcher) GetVideoId(query string) string {
 	return ""
 }
 
-func (searcher YoutubeSearcher) Search(query string, user *discordgo.User) *structs.JuanitaSearch {
+/*func (searcher YoutubeSearcher) Search(query string, user *discordgo.User) *structs.JuanitaSearch {
 	var videoId = searcher.GetVideoId(query)
 	if videoId == "" {
 		return nil
@@ -63,4 +60,4 @@ func (searcher YoutubeSearcher) Search(query string, user *discordgo.User) *stru
 	requestor := structs.NewJuanitaRequestor(utils.ExtractUserTag(user), user.ID)
 	search := structs.NewJuanitaSearch(song, requestor, time.Now())
 	return &search
-}
+}*/

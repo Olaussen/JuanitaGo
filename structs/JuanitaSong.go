@@ -14,8 +14,11 @@ type JuanitaSong struct {
 	Stream io.ReadCloser
 }
 
-func NewJuanitaSong(video *youtube.Video, stream io.ReadCloser) JuanitaSong {
-	return JuanitaSong{Video: video, Stream: stream}
+func NewJuanitaSong(video *youtube.Video, stream io.ReadCloser) *JuanitaSong {
+	song := new(JuanitaSong)
+	song.Video = video
+	song.Stream = stream
+	return song
 }
 
 // get title of song
